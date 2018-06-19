@@ -15,8 +15,8 @@ import (
 const apiBaseURL = "http://worldcup.sfg.io"
 
 var commandMappings = map[string]string{
-	"country": `matches/country?fifa_code=`,
-	"matches": `matches/`,
+	"/country": `matches/country?fifa_code=`,
+	"/matches": `matches/`,
 }
 
 func requestAPI(url string) []Match {
@@ -44,12 +44,17 @@ func requestAPI(url string) []Match {
 }
 
 func buildSlackAttachments(matches []Match) []MatchAttachment {
-	attachments := make([]MatchAttachment, len(matches))
-	for idx, match := range matches {
+	var attachments []MatchAttachment
+
+	for _, match := range matches {
 		matchTime, _ := time.Parse(time.RFC3339, match.Datetime)
 		timestamp := matchTime.Unix()
 
-		attachments[idx] = MatchAttachment{
+		if match.HomeTeam.Code == "TBD" {
+			continue
+		}
+
+		attachments = append(attachments, MatchAttachment{
 			Color:      "#36a64f",
 			Title:      fmt.Sprintf("%s vs %s", match.HomeTeam.Country, match.AwayTeam.Country),
 			Text:       fmt.Sprintf("Match status: %s", match.Status),
@@ -59,16 +64,16 @@ func buildSlackAttachments(matches []Match) []MatchAttachment {
 			Fields: []Field{
 				{
 					Title: strconv.Itoa(match.HomeTeam.Goals),
-					Value: match.HomeTeam.Country,
+					Value: fmt.Sprintf("%s :flag-%s:", match.HomeTeam.Country, strings.ToLower(FifaToAlpha2[match.HomeTeam.Code])),
 					Short: true,
 				},
 				{
 					Title: strconv.Itoa(match.AwayTeam.Goals),
-					Value: match.AwayTeam.Country,
+					Value: fmt.Sprintf("%s :flag-%s:", match.AwayTeam.Country, strings.ToLower(FifaToAlpha2[match.AwayTeam.Code])),
 					Short: true,
 				},
 			},
-		}
+		})
 	}
 	return attachments
 }
@@ -81,7 +86,12 @@ func writeResponse(w http.ResponseWriter, body []Match) {
 		fmt.Fprint(w, `{"error": "no match found"}`)
 	}
 
-	fmt.Fprintf(w, `{"attachments": %s}`, json)
+	text := "No match was found"
+	if len(body) > 0 {
+		text = "Here are your matches"
+	}
+
+	fmt.Fprintf(w, `{"response_type": "in_channel", "text": "%s" , "attachments": %s}`, text, json)
 }
 
 func buildRequestURL(r *http.Request) string {
