@@ -63,7 +63,7 @@ func buildSlackAttachments(matches []Match) []MatchAttachment {
 					Short: true,
 				},
 				{
-					Title: strconv.Itoa(match.HomeTeam.Goals),
+					Title: strconv.Itoa(match.AwayTeam.Goals),
 					Value: match.AwayTeam.Country,
 					Short: true,
 				},
